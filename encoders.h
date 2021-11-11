@@ -70,7 +70,7 @@ ISR( INT6_vect ) {
 
 
 ISR( PCINT0_vect ) {
- 
+    
     // First, Read in the new state of the encoder pins.
 
     // Mask for a specific pin from the port.

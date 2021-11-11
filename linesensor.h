@@ -16,8 +16,79 @@
 #define EMIT_PIN            11
 #define TIME_OUT            4000    // After 4ms, report a time-out
 
+#define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
+#define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
+#define OFFSET_SPEED        90          // mm/s
+#define BIT_SIZE            18.         // mm
+
+#define STATE_INITIALISE        'I'
+#define STATE_READ_CODE         'C'
+#define STATE_FOLLOW_LINE       'L'
+#define STATE_DEBUG             'D'
+#define STATE_FINISHED          'F'
+
+volatile boolean read_bit = false;
+volatile boolean DEBUG_LED_STATE = false;
+static char state=STATE_INITIALISE;
+
+
 //The following could possibly be moved as a privte class variable:
 static uint8_t ls_pin[NB_LS_PINS] = {LS_LEFT_PIN, LS_CENTRE_PIN, LS_RIGHT_PIN};
+
+
+// The ISR routine.
+// The name TIMER3_COMPA_vect is a special flag to the 
+// compiler.  It automatically associates with Timer3 in
+// CTC mode.
+ISR( TIMER3_COMPA_vect ) {
+    if(state==STATE_READ_CODE){
+        // Invert LED state
+        DEBUG_LED_STATE = !DEBUG_LED_STATE;
+
+        // Enable/disable LED
+        digitalWrite(13, DEBUG_LED_STATE);
+        TCNT3=OCR3A/2;
+    
+        read_bit=true;
+    }
+}
+
+
+void setupBarCodeReader(){
+    // disable global interrupts
+    cli();          
+
+    // Reset timer3 to a blank condition.
+    // TCCR = Timer/Counter Control Register
+    TCCR3A = 0;     // set entire TCCR3A register to 0
+    TCCR3B = 0;     // set entire TCCR3B register to 0
+
+    // First, turn on CTC mode.  Timer3 will count up
+    // and create an interrupt on a match to a value.
+    // See table 14.4 in manual, it is mode 4.
+    TCCR3B = TCCR3B | (1 << WGM32);
+
+    // For a cpu clock precaler of 256:
+    // Shift a 1 up to bit CS32 (clock select, timer 3, bit 2)
+    // Table 14.5 in manual. 
+    TCCR3B = TCCR3B | (1 << CS32);
+
+
+    // set compare match register to desired timer count.
+    // CPU Clock  = 16000000 (16mhz).
+    // Prescaler  = 256
+    // Timer freq = 16000000/256 = 62500
+    // We can think of this as timer3 counting up to 62500 in 1 second.
+    // compare match value = 62500 / 5 (we desire 5hz).
+    OCR3A = 62500*SAMPLING_TIME;
+
+    // enable timer compare interrupt:
+    TIMSK3 = TIMSK3 | (1 << OCIE3A);
+
+    // enable global interrupts:
+    sei(); 
+}
+
 
 
 // Class to operate the linesensor(s).
@@ -153,14 +224,12 @@ class LineSensor_c {
         }
 
         /*
-         * Detects if all three front sensors are on a black line
+         * Detects if the frontmost sensor is on a black line
          */
         bool on_line(){
             measure();
-            for(uint8_t i=1; i<NB_LS_PINS-1; i++){
-                if(ls_conditioned_data[i]<0.7) return false;
-            }
-            return true;   
+            if(ls_conditioned_data[1]<0.7) return false;
+            else return true;   
         }
 
         /*
@@ -210,6 +279,27 @@ class LineSensor_c {
             }
             calc_values_percentage();  
             print_LS_raw_data();  
+        }
+
+        boolean numerical_measure(){
+            bool done=false;
+            uint32_t start_time; // t_1
+            reset();
+            start_time = micros();// Store current microsecond count
+            while(!done && (micros()-start_time)<TIME_OUT){
+                // Read all three sensors. Happens very quickly.
+                // The while() above will repeat this process, until 
+                // all the sensors have been read or timed out
+                for(uint8_t i = 0; i < NB_LS_PINS; i++ ) { 
+                    if( digitalRead(ls_pin[i] ) == LOW && ls_temp_times[i]==0) {
+                        // Store the time elapsed for this sensor
+                        ls_temp_times[i]=micros()-start_time;
+                        done++;
+                    }
+                }
+            }
+            
+            
         }
         
 };

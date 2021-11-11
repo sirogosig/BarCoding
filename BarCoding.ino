@@ -4,28 +4,20 @@
 #include "pid.h"
 //#include <math.h>
 
-#define LED_PIN                 13          // Pin to activate the orange LED of the LED, and toggle it.
-#define SAMPLING_TIME           BIT_SIZE/(1000*OFFSET_SPEED)   // ms
-#define OFFSET_SPEED            90          // mm/s
-#define BIT_SIZE                18.         // mm
-
 #define CPR                     358.3       // counts per revolution
 #define WHEEL_DIAMETER          32.         // mm
 #define WHEEL_DISTANCE          85.         // mm, the distance between both wheels
 #define ANGLE_PER_COUNT         2*PI/CPR    // rad
 #define TRAVEL_PER_COUNT        WHEEL_DIAMETER*PI/CPR // mm/count
 
+
 #define FOLLOW_LINE_UPDATE      100         // ms
 #define JOIN_LINE_UPDATE        100         // ms
 #define SPEED_UPDATE            20          // ms
 #define ROTATION_SPEED_UPDATE   9           // ms
-#define CALIBRATION_TIME        3000        //ms  
+#define CALIBRATION_TIME        3000        // ms   
 
-#define STATE_INITIALISE        'I'
-#define STATE_READ_CODE         'C'
-#define STATE_FOLLOW_LINE       'L'
-#define STATE_DEBUG             'D'
-#define STATE_FINISHED          'F' 
+static char measurements[50]={'C'}; 
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
@@ -33,13 +25,11 @@ static PID_c line_PID;
 static PID_c speed_PID_l;
 static PID_c speed_PID_r;
 
-static double rotation_velocity_r=0;
-static double rotation_velocity_l=0;
+static double rotation_velocity_r=0; // mm/s
+static double rotation_velocity_l=0; // mm/s
 
-static char state=STATE_INITIALISE;
-
-static int16_t speed_target_l=OFFSET_SPEED_FAST;
-static int16_t speed_target_r=OFFSET_SPEED_FAST;
+static int16_t speed_target_l=OFFSET_SPEED;
+static int16_t speed_target_r=OFFSET_SPEED;
 
  //flu = Follow Line Update, sb = Starting Behaviour, pidu= PID Update, su = Speed Update, rsu = Rotation Speed Update:
 static uint32_t flu_ts=0, sb_ts=0, pidu_ts=0, su_ts=0, rsu_ts=0;
@@ -74,7 +64,6 @@ static void lineFollowingBehaviour(){
 
     speed_target_l=OFFSET_SPEED - feedback_signal_line;
     speed_target_r=OFFSET_SPEED + feedback_signal_line;
-    Serial.println(feedback_signal_line);
 }
 
 static void read_rotation_speeds(){
@@ -105,12 +94,13 @@ static void read_rotation_speeds(){
 }
 
 void setup(){
-    Serial.begin( 9600 ); // Start a serial connection
+    Serial.begin(9600); // Start a serial connection
     delay(1500); // Wait for stable connection
     pinMode(LED_PIN, OUTPUT);
     
     setupEncoder0();
     setupEncoder1();
+    setupBarCodeReader();
     lineSensors.initialise();
     motors.initialise();
 
@@ -119,9 +109,9 @@ void setup(){
     speed_PID_l.initialise(0.5, 0.7, 0.001);
     speed_PID_r.initialise(0.5, 0.7, 0.001);
     
-    calibrate();
+    //calibrate();
     
-    state=STATE_FOLLOW_LINE;
+    state=STATE_READ_CODE;
     line_PID.reset();
     speed_PID_l.reset();
     speed_PID_r.reset();
@@ -153,6 +143,13 @@ void loop(){
                 lineFollowingBehaviour();
                 flu_ts = millis();
             }
+            if(!lineSensors.on_line()) state=STATE_READ_CODE;
+            break;
+
+        case STATE_READ_CODE:
+            if(read_bit){
+                boolean current_bit = lineSensors.numerical_measure();
+            }
             break;
 
         case STATE_DEBUG:
@@ -161,4 +158,5 @@ void loop(){
         default:
             break;
     }
+    
 }
