@@ -4,29 +4,28 @@
 #include "pid.h"
 //#include <math.h>
 
-#define LED_PIN                 13      // Pin to activate the orange LED of the LED, and toggle it.
-#define CPR                     358.3   // counts per revolution
-#define WHEEL_DIAMETER          32.      // mm
-#define WHEEL_DISTANCE          85.      // mm, the distance between both wheels
-#define ANGLE_PER_COUNT         2*PI/CPR // rad
+#define LED_PIN                 13          // Pin to activate the orange LED of the LED, and toggle it.
+#define SAMPLING_TIME           BIT_SIZE/(1000*OFFSET_SPEED)   // ms
+#define OFFSET_SPEED            90          // mm/s
+#define BIT_SIZE                18.         // mm
+
+#define CPR                     358.3       // counts per revolution
+#define WHEEL_DIAMETER          32.         // mm
+#define WHEEL_DISTANCE          85.         // mm, the distance between both wheels
+#define ANGLE_PER_COUNT         2*PI/CPR    // rad
 #define TRAVEL_PER_COUNT        WHEEL_DIAMETER*PI/CPR // mm/count
 
-#define FOLLOW_LINE_UPDATE          100     // ms
-#define JOIN_LINE_UPDATE            100     // ms
-#define SPEED_UPDATE                20      // ms
-#define ROTATION_SPEED_UPDATE       9       // ms
-#define CALIBRATION_TIME            3000    //ms  
+#define FOLLOW_LINE_UPDATE      100         // ms
+#define JOIN_LINE_UPDATE        100         // ms
+#define SPEED_UPDATE            20          // ms
+#define ROTATION_SPEED_UPDATE   9           // ms
+#define CALIBRATION_TIME        3000        //ms  
 
-
-#define OFFSET_SPEED                90      // mm/s
-#define OFFSET_SPEED_FAST           110     // mm/s
-#define OFFSET_SPEED_VFAST          130     // mm/s
-
-#define STATE_INITIALISE            'I'
-#define STATE_READ_CODE             'C'
-#define STATE_FOLLOW_LINE           'L'
-#define STATE_DEBUG                 'D'
-#define STATE_FINISHED              'F' 
+#define STATE_INITIALISE        'I'
+#define STATE_READ_CODE         'C'
+#define STATE_FOLLOW_LINE       'L'
+#define STATE_DEBUG             'D'
+#define STATE_FINISHED          'F' 
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
@@ -72,13 +71,9 @@ static void calibrate(){
 static void lineFollowingBehaviour(){
     lineSensors.measure();  // Conducts a read of the line sensors
     double feedback_signal_line=line_PID.update(0,lineSensors.getPositionError());
-    uint8_t offset_speed=0;
 
-    if(abs(line_PID.previous_error) < 0.1 && abs(line_PID.error) < 0.1) offset_speed = OFFSET_SPEED_FAST; // Faster on straight lines
-    else offset_speed = OFFSET_SPEED;
-
-    speed_target_l=offset_speed - feedback_signal_line;
-    speed_target_r=offset_speed + feedback_signal_line;
+    speed_target_l=OFFSET_SPEED - feedback_signal_line;
+    speed_target_r=OFFSET_SPEED + feedback_signal_line;
     Serial.println(feedback_signal_line);
 }
 
