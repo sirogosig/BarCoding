@@ -28,8 +28,8 @@ static PID_c line_PID;
 static PID_c speed_PID_l;
 static PID_c speed_PID_r;
 
-static double rotation_velocity_r=0; // mm/s
-static double rotation_velocity_l=0; // mm/s
+static double rotation_velocity_r=OFFSET_SPEED; // mm/s
+static double rotation_velocity_l=OFFSET_SPEED; // mm/s
 
 static int16_t speed_target_l=OFFSET_SPEED;
 static int16_t speed_target_r=OFFSET_SPEED;
@@ -134,6 +134,9 @@ void loop(){
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
+        Serial.println(speed_target_r);
+        Serial.println(rotation_velocity_r);
+        Serial.println(update_signal_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();

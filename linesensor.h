@@ -279,7 +279,6 @@ class LineSensor_c {
                 calc_conditioned_data(); //Calculate the conditioned data only if calibration has happenned
             }
             calc_values_percentage();  
-            print_LS_raw_data();  
         }
 
         boolean numerical_measure(){
