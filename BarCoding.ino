@@ -15,9 +15,12 @@
 #define JOIN_LINE_UPDATE        100         // ms
 #define SPEED_UPDATE            20          // ms
 #define ROTATION_SPEED_UPDATE   9           // ms
-#define CALIBRATION_TIME        3000        // ms   
+#define CALIBRATION_TIME        2000        // ms   
 
-static char measurements[50]={'C'}; 
+#define NUMBER_MEASUREMENTS     50
+
+static bool measurements[NUMBER_MEASUREMENTS]={false}; 
+static uint8_t index=0;
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
@@ -50,7 +53,6 @@ static void calibrate(){
         }
         delay(30);
     }
-    motors.halt();
 
     // Calculate the scaling factors S:
     for(uint8_t i=0; i<NB_LS_PINS; i++){
@@ -109,9 +111,9 @@ void setup(){
     speed_PID_l.initialise(0.5, 0.7, 0.001);
     speed_PID_r.initialise(0.5, 0.7, 0.001);
     
-    //calibrate();
+    calibrate();
     
-    state=STATE_READ_CODE;
+    state=STATE_FOLLOW_LINE;
     line_PID.reset();
     speed_PID_l.reset();
     speed_PID_r.reset();
@@ -129,7 +131,7 @@ void loop(){
         rsu_ts=millis();
     }
 
-    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FINISHED) {
+    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
         motors.setRightMotorPower((int16_t)update_signal_r);
@@ -143,14 +145,31 @@ void loop(){
                 lineFollowingBehaviour();
                 flu_ts = millis();
             }
-            if(!lineSensors.on_line()) state=STATE_READ_CODE;
+            if(!lineSensors.on_line()){
+                state=STATE_READ_CODE;
+                TCNT3=OCR3A/2;
+                speed_target_r=OFFSET_SPEED;
+                speed_target_l=OFFSET_SPEED;
+            }
             break;
 
         case STATE_READ_CODE:
             if(read_bit){
                 boolean current_bit = lineSensors.numerical_measure();
+                if(index<NUMBER_MEASUREMENTS){
+                    measurements[index]=current_bit;
+                    if(index >0 && measurements[index-1]==current_bit) state=STATE_FAILED;
+                    else index++;
+                }
+                digitalWrite(13, current_bit);                
+                read_bit=false;         
             }
             break;
+
+        case STATE_FAILED:
+            motors.halt();
+            Serial.println(index);
+            delay(50);
 
         case STATE_DEBUG:
             break;

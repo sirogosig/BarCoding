@@ -12,6 +12,8 @@
 
 #define RIGHT               true
 #define LEFT                false
+#define WHITE               false
+#define BLACK               true
 
 #define EMIT_PIN            11
 #define TIME_OUT            4000    // After 4ms, report a time-out
@@ -25,7 +27,7 @@
 #define STATE_READ_CODE         'C'
 #define STATE_FOLLOW_LINE       'L'
 #define STATE_DEBUG             'D'
-#define STATE_FINISHED          'F'
+#define STATE_FAILED            'F'
 
 volatile boolean read_bit = false;
 volatile boolean DEBUG_LED_STATE = false;
@@ -42,12 +44,11 @@ static uint8_t ls_pin[NB_LS_PINS] = {LS_LEFT_PIN, LS_CENTRE_PIN, LS_RIGHT_PIN};
 // CTC mode.
 ISR( TIMER3_COMPA_vect ) {
     if(state==STATE_READ_CODE){
-        // Invert LED state
-        DEBUG_LED_STATE = !DEBUG_LED_STATE;
-
-        // Enable/disable LED
-        digitalWrite(13, DEBUG_LED_STATE);
-        TCNT3=OCR3A/2;
+//        // Invert LED state
+//        DEBUG_LED_STATE = !DEBUG_LED_STATE;
+//
+//        // Enable/disable LED
+//        digitalWrite(13, DEBUG_LED_STATE);
     
         read_bit=true;
     }
@@ -228,7 +229,7 @@ class LineSensor_c {
          */
         bool on_line(){
             measure();
-            if(ls_conditioned_data[1]<0.7) return false;
+            if(ls_conditioned_data[1]<0.5) return false;
             else return true;   
         }
 
@@ -284,21 +285,26 @@ class LineSensor_c {
         boolean numerical_measure(){
             bool done=false;
             uint32_t start_time; // t_1
+            uint32_t ls_temp_time = 0; //initialised at 0 (if ≠ than 0, then it means a value has already been read)
             reset();
             start_time = micros();// Store current microsecond count
+            
             while(!done && (micros()-start_time)<TIME_OUT){
-                // Read all three sensors. Happens very quickly.
-                // The while() above will repeat this process, until 
-                // all the sensors have been read or timed out
-                for(uint8_t i = 0; i < NB_LS_PINS; i++ ) { 
-                    if( digitalRead(ls_pin[i] ) == LOW && ls_temp_times[i]==0) {
-                        // Store the time elapsed for this sensor
-                        ls_temp_times[i]=micros()-start_time;
-                        done++;
-                    }
+                // Read the central sensor. Happens very quickly.
+                // The while() above will repeat this process, until it hasnt been read or timed out
+                if( digitalRead(ls_pin[1]) == LOW && ls_temp_time==0) {
+                    // Store the time elapsed for this sensor
+                    ls_temp_time=micros()-start_time;
+                    done=true;
                 }
             }
+            ls_raw_data[1]=ls_temp_time;
             
+            if(scaling_factors[NB_LS_PINS-1]!=0) {
+                calc_conditioned_data(); //Calculates the conditioned data only if calibration has happenned
+            }
+            if(ls_conditioned_data[1]>0.5) return BLACK;
+            else return WHITE;
             
         }
         
