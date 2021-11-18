@@ -20,8 +20,8 @@
 
 #define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
 #define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
-#define OFFSET_SPEED        90          // mm/s
-#define BIT_SIZE            19.         // mm
+#define OFFSET_SPEED        70          // mm/s
+#define BIT_SIZE            16.         // mm
 
 #define STATE_INITIALISE        'I'
 #define STATE_READ_CODE         'C'
@@ -228,9 +228,7 @@ class LineSensor_c {
          * Detects if the frontmost sensor is on a black line
          */
         bool on_line(){
-            measure();
-            if(ls_conditioned_data[1]<0.5) return false;
-            else return true;   
+            return numerical_measure();  
         }
 
         /*
@@ -281,6 +279,10 @@ class LineSensor_c {
             calc_values_percentage();  
         }
 
+        
+        /*
+         * Returns 1 if the front sensor senses black and 0 if it senses white
+         */
         boolean numerical_measure(){
             bool done=false;
             uint32_t start_time; // t_1
@@ -302,7 +304,7 @@ class LineSensor_c {
             if(scaling_factors[NB_LS_PINS-1]!=0) {
                 calc_conditioned_data(); //Calculates the conditioned data only if calibration has happenned
             }
-            if(ls_conditioned_data[1]>0.5) return BLACK;
+            if(ls_conditioned_data[1]>=0.5) return BLACK;
             else return WHITE;
             
         }

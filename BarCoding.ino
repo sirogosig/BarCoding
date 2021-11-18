@@ -2,7 +2,6 @@
 #include "linesensor.h"
 #include "encoders.h"
 #include "pid.h"
-//#include <math.h>
 
 #define CPR                     358.3       // counts per revolution
 #define WHEEL_DIAMETER          32.         // mm
@@ -16,11 +15,15 @@
 #define SPEED_UPDATE            20          // ms
 #define ROTATION_SPEED_UPDATE   9           // ms
 #define CALIBRATION_TIME        2000        // ms   
+#define EDGE_UPDATE             50          // ms
 
 #define NUMBER_MEASUREMENTS     50
 
-static bool measurements[NUMBER_MEASUREMENTS]={false}; 
+static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
+static uint32_t timings[2*NUMBER_MEASUREMENTS]={1}; 
+static double sampling_position[NUMBER_MEASUREMENTS]={0.};
 static uint8_t index=0;
+static bool current_color=WHITE;
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
@@ -95,6 +98,28 @@ static void read_rotation_speeds(){
     previous_count_l=current_count_l;
 }
 
+static compute_sampling_positions(){
+    for(uint8_t i=0 ; i<index ; i++){
+        sampling_position[i]=(double)(timings[2*i+1]-timings[2*i])/(timings[2*(i+1)]-timings[2*i]);
+    }
+}
+
+static print_timings(){
+    Serial.println("Timings are: ");
+    for(uint8_t i=0; i < 2*index;i++){
+        Serial.println(timings[i]);
+    }
+}
+
+static print_sampling_positions(){
+    for(uint8_t i=0 ; i<index ; i++){
+        Serial.print("Sampling position of bit ");
+        Serial.print(i);
+        Serial.print(" = ");
+        Serial.println(sampling_position[i]);
+    }
+}
+
 void setup(){
     Serial.begin(9600); // Start a serial connection
     delay(1500); // Wait for stable connection
@@ -107,7 +132,7 @@ void setup(){
     motors.initialise();
 
     // PID intialisations: (Kp,Ki,Kd)
-    line_PID.initialise(60, 0.15, 0.01);
+    line_PID.initialise(60, 0.1, 0.005);
     speed_PID_l.initialise(0.5, 0.5, 0.001 ); //0.5, 0.7, 0.001
     speed_PID_r.initialise(0.5, 0.5, 0.001);
     
@@ -127,24 +152,33 @@ void loop(){
     static uint32_t current_ts_ms;
     current_ts_ms = millis();
 
-    if(current_ts_ms - rsu_ts > ROTATION_SPEED_UPDATE) {
+    if(current_ts_ms - rsu_ts > ROTATION_SPEED_UPDATE and !read_bit) {
         read_rotation_speeds();
         rsu_ts=millis();
     }
 
-    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
+    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
-        Serial.print(speed_target_r);
-        Serial.print(" ");
-        Serial.print(rotation_velocity_r);
-        Serial.print(" ");
-        Serial.println(update_signal_r);
+//        Serial.print(speed_target_r);
+//        Serial.print(" ");
+//        Serial.print(rotation_velocity_r);
+//        Serial.print(" ");
+//        Serial.println(update_signal_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();
     }
 
+    if(current_ts_ms - su_ts > EDGE_UPDATE and state != STATE_FAILED and !read_bit) {
+        bool color = lineSensors.numerical_measure();
+        if(color!= current_color){
+            timings[2*index] = millis();
+            current_color=color;
+        }
+            
+    }
+    
     switch(state){
         case STATE_FOLLOW_LINE:
             if(current_ts_ms - flu_ts > FOLLOW_LINE_UPDATE){
@@ -154,34 +188,44 @@ void loop(){
             if(!lineSensors.on_line()){
                 state=STATE_READ_CODE;
                 TCNT3=OCR3A/2;
+                timings[index]=millis();
                 speed_target_r=OFFSET_SPEED;
                 speed_target_l=OFFSET_SPEED;
             }
             break;
 
         case STATE_READ_CODE:
-            if(read_bit){
+            if(read_bit){ // only reads when the interrupt routine is called
+                timings[2*index+1] = millis();
                 boolean current_bit = lineSensors.numerical_measure();
                 if(index<NUMBER_MEASUREMENTS){
-                    measurements[index]=current_bit;
-                    if(index >0 && measurements[index-1]==current_bit) state=STATE_FAILED;
-                    else index++;
+                    if(index >0 && measurements[index-1]==current_bit){
+                        state=STATE_FAILED;
+                        speed_target_r=0;
+                        speed_target_l=0;
+                        motors.halt();
+                        compute_sampling_positions();
+                    }
+                    else{
+                        measurements[index]=current_bit;
+                        index++;   
+                    }
                 }
                 digitalWrite(13, current_bit);                
-                read_bit=false;         
+                read_bit = false;         
             }
             break;
 
         case STATE_FAILED:
-            motors.halt();
-            Serial.print("index =");
+            Serial.print("Last index =");
             Serial.println(index);
-            
-
-
-            delay(50);
+            print_sampling_positions();
+            print_timings();
+            delay(1000);
 
         case STATE_DEBUG:
+            Serial.println(millis());
+            delay(1000);
             break;
             
         default:
