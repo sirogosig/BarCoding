@@ -15,12 +15,12 @@
 #define SPEED_UPDATE            20          // ms
 #define ROTATION_SPEED_UPDATE   9           // ms
 #define CALIBRATION_TIME        2000        // ms   
-#define EDGE_UPDATE             50          // ms
+#define EDGE_UPDATE             10          // ms
 
 #define NUMBER_MEASUREMENTS     50
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
-static uint32_t timings[2*NUMBER_MEASUREMENTS]={1}; 
+static uint32_t timings[2*NUMBER_MEASUREMENTS]={0}; 
 static double sampling_position[NUMBER_MEASUREMENTS]={0.};
 static uint8_t index=0;
 static bool current_color=WHITE;
@@ -106,7 +106,7 @@ static compute_sampling_positions(){
 
 static print_timings(){
     Serial.println("Timings are: ");
-    for(uint8_t i=0; i < 2*index;i++){
+    for(uint8_t i=0; i < 2*index; i++){
         Serial.println(timings[i]);
     }
 }
@@ -175,8 +175,7 @@ void loop(){
         if(color!= current_color){
             timings[2*index] = millis();
             current_color=color;
-        }
-            
+        }      
     }
     
     switch(state){
