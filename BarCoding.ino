@@ -71,7 +71,7 @@ static void lineFollowingBehaviour(){
 static void read_rotation_speeds(){
     static uint32_t current_ts_us, loop_duration_us, previous_ts_us = micros();
     static int32_t current_count_r, current_count_l, previous_count_r = count_r, previous_count_l = count_l;
-    double rotation_speed_r=0, rotation_speed_l=0;
+    double rotation_speed_r=OFFSET_SPEED*0.8, rotation_speed_l=OFFSET_SPEED*0.8;
     
     current_ts_us = micros();
     current_count_r=count_r;
@@ -108,10 +108,11 @@ void setup(){
 
     // PID intialisations: (Kp,Ki,Kd)
     line_PID.initialise(60, 0.15, 0.01);
-    speed_PID_l.initialise(0.5, 0.7, 0.001);
-    speed_PID_r.initialise(0.5, 0.7, 0.001);
+    speed_PID_l.initialise(0.5, 0.5, 0.001 ); //0.5, 0.7, 0.001
+    speed_PID_r.initialise(0.5, 0.5, 0.001);
     
     calibrate();
+
     
     state=STATE_FOLLOW_LINE;
     line_PID.reset();
@@ -134,8 +135,10 @@ void loop(){
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
-        Serial.println(speed_target_r);
-        Serial.println(rotation_velocity_r);
+        Serial.print(speed_target_r);
+        Serial.print(" ");
+        Serial.print(rotation_velocity_r);
+        Serial.print(" ");
         Serial.println(update_signal_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);

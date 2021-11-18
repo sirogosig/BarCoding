@@ -31,6 +31,7 @@ class PID_c {
         void reset(){
             total_error=0.;
             previous_ts=millis();
+            previous_error = 0;
         }
         
         void initialise(float Kp_, float Ki_, float Kd_){
