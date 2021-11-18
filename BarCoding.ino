@@ -171,7 +171,11 @@ void loop(){
 
         case STATE_FAILED:
             motors.halt();
+            Serial.print("index =");
             Serial.println(index);
+            
+
+
             delay(50);
 
         case STATE_DEBUG:
