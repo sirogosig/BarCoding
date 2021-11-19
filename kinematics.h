@@ -62,20 +62,6 @@ class Kinematics_c {
       PrevRightWheelDeg = RightWheelDeg;
       PrevLeftWheelDeg = LeftWheelDeg;
     }
-
-
-
-    float getThetaR() {
-      return ThetaR;
-    }
-    float getXIabs() {
-      return XIabs;
-    }
-    float getYIabs() {
-      return YIabs;
-    }
-
-
 };
 
 
