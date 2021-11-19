@@ -1,7 +1,9 @@
+//This is the kinematics branch
 #include "motors.h"
 #include "linesensor.h"
 #include "encoders.h"
 #include "pid.h"
+#include "kinematics.h"
 
 #define CPR                     358.3       // counts per revolution
 #define WHEEL_DIAMETER          32.         // mm
@@ -14,10 +16,10 @@
 #define JOIN_LINE_UPDATE        100         // ms
 #define SPEED_UPDATE            20          // ms
 #define ROTATION_SPEED_UPDATE   9           // ms
-#define CALIBRATION_TIME        2000        // ms   
+#define CALIBRATION_TIME        1700        // ms   
 #define EDGE_UPDATE             10          // ms
 
-#define NUMBER_MEASUREMENTS     30
+#define NUMBER_MEASUREMENTS     50
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
 static uint32_t timings[2*NUMBER_MEASUREMENTS]={0}; 
@@ -25,11 +27,15 @@ static double sampling_position[NUMBER_MEASUREMENTS]={0.};
 static uint8_t index=0;
 static bool current_color=WHITE;
 
+float distance[2*NUMBER_MEASUREMENTS] = {0};
+float sampling_point[NUMBER_MEASUREMENTS] = {0};
+
 static LineSensor_c lineSensors;
 static Motors_c motors;
 static PID_c line_PID;
 static PID_c speed_PID_l;
 static PID_c speed_PID_r;
+static Kinematics_c kinematics;
 
 static double rotation_velocity_r=OFFSET_SPEED; // mm/s
 static double rotation_velocity_l=OFFSET_SPEED; // mm/s
@@ -104,10 +110,24 @@ static compute_sampling_positions(){
     }
 }
 
+static compute_sampling_point(){ //GAFF
+    for(uint8_t i = 0 ; i < index ; i++){
+        sampling_point[i]=(float)(distance[2*i+1]-distance[2*i])/(distance[2*(i+1)]-distance[2*i]);
+    }
+}
+
+
 static print_timings(){
     Serial.println("Timings are: ");
     for(uint8_t i=0; i < 2*index; i++){
         Serial.println(timings[i]);
+    }
+}
+
+static print_distance(){//GAFF
+    Serial.println("Distances are: ");
+    for(uint8_t i=0; i < 2*index; i++){
+        Serial.println(distance[i]);
     }
 }
 
@@ -117,6 +137,14 @@ static print_sampling_positions(){
         Serial.print(i);
         Serial.print(" = ");
         Serial.println(sampling_position[i]);
+    }
+}
+static print_sampling_point(){
+    for(uint8_t i=0 ; i<index ; i++){
+        Serial.print("Sampling position of bit ");
+        Serial.print(i);
+        Serial.print(" = ");
+        Serial.println(sampling_point[i]);
     }
 }
 
@@ -130,6 +158,7 @@ void setup(){
     setupBarCodeReader();
     lineSensors.initialise();
     motors.initialise();
+    kinematics.initialise();
 
     // PID intialisations: (Kp,Ki,Kd)
     line_PID.initialise(60, 0.1, 0.005);
@@ -151,7 +180,7 @@ void setup(){
 void loop(){
     static uint32_t current_ts_ms;
     current_ts_ms = millis();
-
+    
     if(current_ts_ms - rsu_ts > ROTATION_SPEED_UPDATE and !read_bit) {
         read_rotation_speeds();
         rsu_ts=millis();
@@ -173,7 +202,8 @@ void loop(){
     if(current_ts_ms - su_ts > EDGE_UPDATE and state != STATE_FAILED and !read_bit) {
         bool color = lineSensors.numerical_measure();
         if(color!= current_color){
-            timings[2*index] = millis();
+            kinematics.getInstantPosition();
+            distance[2*index] = kinematics.getXIabs();
             current_color=color;
         }      
     }
@@ -187,7 +217,10 @@ void loop(){
             if(!lineSensors.on_line()){
                 state=STATE_READ_CODE;
                 TCNT3=OCR3A/2;
-                timings[index]=millis();
+                //timings[index]=millis();
+                kinematics.XIabs=0;//GAFF
+                distance[index] = kinematics.getXIabs();//GAFF
+              
                 speed_target_r=OFFSET_SPEED;
                 speed_target_l=OFFSET_SPEED;
             }
@@ -195,15 +228,18 @@ void loop(){
 
         case STATE_READ_CODE:
             if(read_bit){ // only reads when the interrupt routine is called
-                timings[2*index+1] = millis();
+                kinematics.getInstantPosition();
+                distance[2*index+1] = kinematics.getXIabs();//GAFF
                 boolean current_bit = lineSensors.numerical_measure();
+                                
                 if(index<NUMBER_MEASUREMENTS){
                     if(index >0 && measurements[index-1]==current_bit){
                         state=STATE_FAILED;
                         speed_target_r=0;
                         speed_target_l=0;
                         motors.halt();
-                        compute_sampling_positions();
+                        //compute_sampling_positions();
+                        compute_sampling_point();
                     }
                     else{
                         measurements[index]=current_bit;
@@ -218,8 +254,12 @@ void loop(){
         case STATE_FAILED:
             Serial.print("Last index =");
             Serial.println(index);
-            print_sampling_positions();
-            print_timings();
+            //print_sampling_positions();
+            //print_timings();
+            print_sampling_point();//GAFF
+            print_distance();//GAFF
+            lineSensors.numerical_measure();//GAFF
+            lineSensors.print_LS_conditioned_data();//GAFF
             delay(1000);
 
         case STATE_DEBUG:
