@@ -17,7 +17,7 @@
 #define CALIBRATION_TIME        1700        // ms   
 #define EDGE_UPDATE             10          // ms
 
-#define NUMBER_MEASUREMENTS     500
+#define NUMBER_MEASUREMENTS     50
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
 static uint32_t timings[2*NUMBER_MEASUREMENTS]={0}; 
