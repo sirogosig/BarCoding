@@ -16,12 +16,12 @@
 #define BLACK               true
 
 #define EMIT_PIN            11
-#define TIME_OUT            4000    // After 4ms, report a time-out
+#define TIME_OUT            4000        // After 4ms, report a time-out
 
 #define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
 #define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
-#define OFFSET_SPEED        100          // mm/s
-#define BIT_SIZE            16.06        // mm
+#define OFFSET_SPEED        80         // mm/s
+#define BIT_SIZE            16.         // mm 
 
 #define STATE_INITIALISE        'I'
 #define STATE_READ_CODE         'C'
@@ -43,15 +43,8 @@ static uint8_t ls_pin[NB_LS_PINS] = {LS_LEFT_PIN, LS_CENTRE_PIN, LS_RIGHT_PIN};
 // compiler.  It automatically associates with Timer3 in
 // CTC mode.
 ISR( TIMER3_COMPA_vect ) {
-    if(state==STATE_READ_CODE){
-//        // Invert LED state
-//        DEBUG_LED_STATE = !DEBUG_LED_STATE;
-//
-//        // Enable/disable LED
-//        digitalWrite(13, DEBUG_LED_STATE);
-    
-        read_bit=true;
-    }
+    if(state==STATE_READ_CODE) read_bit=true;
+
 }
 
 
@@ -233,16 +226,6 @@ class LineSensor_c {
             return numerical_measure();  
         }
 
-        /*
-         * Returns true if any of the 5 sensors detects a black line
-         */
-        bool line_detected(){
-            measure();
-            for(uint8_t i=0; i<NB_LS_PINS; i++){
-                if(ls_conditioned_data[i]>0.2) return true;
-            }
-            return false; 
-        }
 
         /*
          * Measures the raw, conditioned and percentage values for all the sensors
@@ -306,11 +289,9 @@ class LineSensor_c {
             if(scaling_factors[NB_LS_PINS-1]!=0) {
                 calc_conditioned_data(); //Calculates the conditioned data only if calibration has happenned
             }
-            if(ls_conditioned_data[1]>=0.2) return BLACK;
+            if(ls_conditioned_data[1]>=0.5) return BLACK;
             else return WHITE;
-            
         }
-        
 };
 
 

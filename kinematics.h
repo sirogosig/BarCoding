@@ -10,58 +10,57 @@
 
 // Class to track robot position.
 class Kinematics_c {
-  public:
+    public:
+        // r = 16mm
+        float ThetaR;
+        float XIabs;
+        float YIabs;
+        float RightWheelDeg;
+        float LeftWheelDeg;
 
-    // r = 16mm
-    float ThetaR;
-    float XIabs;
-    float YIabs;
-    float RightWheelDeg;
-    float LeftWheelDeg;
-
-    float PrevRightWheelDeg;
-    float PrevLeftWheelDeg;
-
+        float PrevRightWheelDeg;
+        float PrevLeftWheelDeg;
 
 
-    // Constructor, must exist.
-    Kinematics_c() {
 
-    }
+        // Constructor, must exist.
+        Kinematics_c() {
+            RightWheelDeg = 0.;
+            LeftWheelDeg = 0.;
+            PrevRightWheelDeg = 0.;
+            PrevLeftWheelDeg = 0.;
+            ThetaR=0.;
+            XIabs=0.;
+            YIabs=0.;
+        }
 
-    // Use this function to update
-    // your kinematics
-    void initialise() {
-      RightWheelDeg = 0;
-      LeftWheelDeg = 0;
-      PrevRightWheelDeg = 0;
-      PrevLeftWheelDeg = 0;
+        void reset() {
+            YIabs=0.;
+            XIabs=0.;
+            PrevRightWheelDeg=(float)count_r;
+            PrevLeftWheelDeg=(float)count_l;
+        }
 
-
-    }
-    void update() {
-
-
-    }
+        
+        // Use this function to update
+        // your kinematics
+        void update() {
+            float XR;
+            RightWheelDeg = (float)count_r;
+            LeftWheelDeg =  (float)count_l;
     
-
-    void getInstantPosition() {
-      float XR;
-      RightWheelDeg = (float)count_r;
-      LeftWheelDeg =  (float)count_l;
-
-      float DifRightWheelDeg = RightWheelDeg - PrevRightWheelDeg;
-      float DifLeftWheelDeg = LeftWheelDeg - PrevLeftWheelDeg;
-
-      XR = (r * DifRightWheelDeg * PI / 180) / 2 + (r * DifLeftWheelDeg * PI / 180) / 2; // r = 16mm
-      ThetaR = ((r * RightWheelDeg) / (2 * L) - (r * LeftWheelDeg) / (2 * L));
-      XIabs += XR * cos(ThetaR * PI / 180);
-      YIabs += XR * sin(ThetaR * PI / 180);
-
-
-      PrevRightWheelDeg = RightWheelDeg;
-      PrevLeftWheelDeg = LeftWheelDeg;
-    }
+            float DifRightWheelDeg = RightWheelDeg - PrevRightWheelDeg;
+            float DifLeftWheelDeg = LeftWheelDeg - PrevLeftWheelDeg;
+            
+            XR = (r * DifRightWheelDeg * PI / 180) / 2 + (r * DifLeftWheelDeg * PI / 180) / 2; // r = 16mm
+            ThetaR = ((r * RightWheelDeg) / (2 * L) - (r * LeftWheelDeg) / (2 * L));
+            XIabs += XR * cos(ThetaR * PI / 180);
+            YIabs += XR * sin(ThetaR * PI / 180);
+    
+    
+            PrevRightWheelDeg = RightWheelDeg;
+            PrevLeftWheelDeg = LeftWheelDeg;
+        }
 };
 
 

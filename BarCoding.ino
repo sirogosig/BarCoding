@@ -13,21 +13,20 @@
 
 
 #define FOLLOW_LINE_UPDATE      100         // ms
-#define JOIN_LINE_UPDATE        100         // ms
 #define SPEED_UPDATE            20          // ms
-#define ROTATION_SPEED_UPDATE   9           // ms
-#define CALIBRATION_TIME        1700        // ms   
-#define EDGE_UPDATE             10          // ms
+#define SPEED_READING_UPDATE    9           // ms
+#define CALIBRATION_TIME        2400        // ms   
+#define EDGE_UPDATE             5          // ms
 
 #define NUMBER_MEASUREMENTS     50
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
-static double sampling_position[NUMBER_MEASUREMENTS]={0.};
+static double sampling_point[NUMBER_MEASUREMENTS] = {0.};
 static uint8_t index=0;
 static bool current_color=WHITE;
 
-float distance[2*NUMBER_MEASUREMENTS] = {0};
-float sampling_point[NUMBER_MEASUREMENTS] = {0};
+static double sampling_distance[NUMBER_MEASUREMENTS] = {0.};
+static double edges_distance[NUMBER_MEASUREMENTS] = {0.};
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
@@ -43,7 +42,7 @@ static int16_t speed_target_l=OFFSET_SPEED;
 static int16_t speed_target_r=OFFSET_SPEED;
 
  //flu = Follow Line Update, sb = Starting Behaviour, pidu= PID Update, su = Speed Update, rsu = Rotation Speed Update:
-static uint32_t flu_ts=0, sb_ts=0, pidu_ts=0, su_ts=0, rsu_ts=0;
+static uint32_t flu_ts=0, sb_ts=0, pidu_ts=0, su_ts=0, sru_ts=0, eu_ts=0;
 
 /*
  * The calibration function makes the robot advance for a given time, during which it samples
@@ -52,7 +51,7 @@ static uint32_t flu_ts=0, sb_ts=0, pidu_ts=0, su_ts=0, rsu_ts=0;
  */
 static void calibrate(){
     const uint32_t initial_ts = millis();
-    motors.advance(20);
+    motors.advance(OFFSET_SPEED/5); // The division by 5 is an approximation of the relation between speed (mm/s) and pwm power
     while(millis() - initial_ts < CALIBRATION_TIME){
         lineSensors.measure();
         for(uint8_t i=0; i<NB_LS_PINS; i++){
@@ -105,21 +104,34 @@ static void read_rotation_speeds(){
 
 static compute_sampling_point(){
     for(uint8_t i = 0 ; i < index ; i++){
-        sampling_point[i]=(float)(distance[2*i+1]-distance[2*i])/(distance[2*(i+1)]-distance[2*i]);
+        sampling_point[i]=(float)(sampling_distance[i]-edges_distance[i])/(edges_distance[i+1]-edges_distance[i]);
     }
 }
 
-static print_distance(){//GAFF
-    Serial.println("Distances are: ");
-    for(uint8_t i=0; i <= 2*index+1; i++){
-        Serial.print("Distance at index ");
+static print_sampling_distance(){
+    Serial.println(" ");
+    Serial.println("Sampling distances are: ");
+    for(uint8_t i=0; i <= index; i++){
+        Serial.print("Sampling distance of bit ");
         Serial.print(i);
         Serial.print(" = ");
-        Serial.println(distance[i]);
+        Serial.println(sampling_distance[i]);
     }
+}
+
+static print_edges_distance(){
+    Serial.println(" ");
+    Serial.println("Edges distances are: ");
+    for(uint8_t i=0; i <= index; i++){
+        Serial.print("Distance of the edge of bit ");
+        Serial.print(i);
+        Serial.print(" = ");
+        Serial.println(edges_distance[i]);
+    }   
 }
 
 static print_sampling_point(){
+    Serial.println(" ");
     for(uint8_t i=0 ; i<index ; i++){
         Serial.print("Sampling position of bit ");
         Serial.print(i);
@@ -138,7 +150,6 @@ void setup(){
     setupBarCodeReader();
     lineSensors.initialise();
     motors.initialise();
-    kinematics.initialise();
 
     // PID intialisations: (Kp,Ki,Kd)
     line_PID.initialise(60, 0.1, 0.005);
@@ -161,9 +172,9 @@ void loop(){
     static uint32_t current_ts_ms;
     current_ts_ms = millis();
     
-    if(current_ts_ms - rsu_ts > ROTATION_SPEED_UPDATE and !read_bit) {
+    if(current_ts_ms - sru_ts > SPEED_READING_UPDATE and !read_bit) {
         read_rotation_speeds();
-        rsu_ts=millis();
+        sru_ts=millis();
     }
 
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
@@ -179,13 +190,14 @@ void loop(){
         su_ts=millis();
     }
 
-    if(current_ts_ms - su_ts > EDGE_UPDATE and state != STATE_FAILED and !read_bit) {
+    if(current_ts_ms - eu_ts > EDGE_UPDATE and state == STATE_READ_CODE and !read_bit) {
         bool color = lineSensors.numerical_measure();
         if(color!= current_color){
-            kinematics.getInstantPosition();
-            distance[2*index] = kinematics.XIabs;
+            kinematics.update();
+            edges_distance[index] = kinematics.XIabs;
             current_color=color;
-        }      
+        }  
+        eu_ts=millis();    
     }
     
     switch(state){
@@ -196,10 +208,8 @@ void loop(){
             }
             if(!lineSensors.on_line()){
                 TCNT3=OCR3A/2;
-                kinematics.XIabs=0;
-                kinematics.PrevRightWheelDeg=(float)count_r;
-                kinematics.PrevLeftWheelDeg=(float)count_l;
-                distance[index] = kinematics.XIabs;
+                kinematics.reset();
+                edges_distance[index] = kinematics.XIabs; // At this point index = 0
               
                 speed_target_r=OFFSET_SPEED;
                 speed_target_l=OFFSET_SPEED;
@@ -209,22 +219,20 @@ void loop(){
 
         case STATE_READ_CODE:
             if(read_bit){ // only reads when the interrupt routine is called
-                kinematics.getInstantPosition();
-                distance[2*index+1] = kinematics.XIabs;//GAFF
+                kinematics.update();
+                sampling_distance[index] = kinematics.XIabs;
                 boolean current_bit = lineSensors.numerical_measure();
                                 
                 if(index<NUMBER_MEASUREMENTS){
-                    if(index > 0 && measurements[index-1]==current_bit){
+                    measurements[index]=current_bit;
+                    if(index > 0 and measurements[index-1] == measurements[index]){
                         state=STATE_FAILED;
                         speed_target_r=0;
                         speed_target_l=0;
                         motors.halt();
                         compute_sampling_point();
                     }
-                    else{
-                        measurements[index]=current_bit;
-                        index++;   
-                    }
+                    else index++;
                 }
                 digitalWrite(13, current_bit);                
                 read_bit = false;         
@@ -232,15 +240,15 @@ void loop(){
             break;
 
         case STATE_FAILED:
-            Serial.print("Last index =");
-            Serial.println(index);
-            //print_sampling_positions();
-            //print_timings();
-            print_sampling_point();//GAFF
-            print_distance();//GAFF
-            lineSensors.numerical_measure();//GAFF
-            lineSensors.print_LS_conditioned_data();//GAFF
+            Serial.println("---------------------------------------");
+            Serial.print("Last correct index = ");
+            Serial.println(index-1);
+            print_edges_distance();
+            print_sampling_distance();
+            print_sampling_point();
+
             delay(1000);
+            break;
 
         case STATE_DEBUG:
             delay(1000);
