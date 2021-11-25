@@ -9,9 +9,6 @@
 #define WHEEL_DISTANCE          85.         // mm, the distance between both wheels
 #define ANGLE_PER_COUNT         2*PI/CPR    // rad
 #define TRAVEL_PER_COUNT        WHEEL_DIAMETER*PI/CPR // mm/count
-//#define r 16.5
-//#define L 43.1
-
 
 // Class to track robot position.
 class Kinematics_c {
@@ -56,9 +53,9 @@ class Kinematics_c {
                 YIabs+=sin(theta)*XR_dot;
                 theta+=theta_dot;
 
-                // The following is so that theta remains between [0,2∏[
-                while(theta>=2*PI) theta-=2*PI;
-                while(theta<0) theta+=2*PI;    
+                // The following is so that theta remains between [-∏,∏[
+                while(theta>PI) theta-=2*PI;
+                while(theta<=-PI) theta+=2*PI;    
                 
                 count_r_old = count_r;
                 count_l_old = count_l;

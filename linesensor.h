@@ -20,8 +20,8 @@
 
 #define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
 #define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
-#define OFFSET_SPEED        100         // mm/s
-#define BIT_SIZE            16.         // mm 
+#define OFFSET_SPEED        60         // mm/s  Possible speeds : 60, 100, 140, 180, 220
+#define BIT_SIZE            8.         // mm 
 
 #define STATE_INITIALISE    'I'
 #define STATE_READ_CODE     'C'
@@ -289,7 +289,7 @@ class LineSensor_c {
             if(scaling_factors[NB_LS_PINS-1]!=0) {
                 calc_conditioned_data(); //Calculates the conditioned data only if calibration has happenned
             }
-            if(ls_conditioned_data[1]>=0.5) return BLACK;
+            if(ls_conditioned_data[1]>=0.35) return BLACK;
             else return WHITE;
         }
 };

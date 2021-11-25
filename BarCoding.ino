@@ -9,10 +9,14 @@
 #define SPEED_UPDATE            20          // ms
 #define KINEMATCS_UPDATE        30          // ms
 #define SPEED_READING_UPDATE    9           // ms
-#define CALIBRATION_TIME        2000        // ms   
-#define EDGE_UPDATE             5           // ms
+#define CALIBRATION_TIME        3000        // ms   
+#define EDGE_UPDATE             10          // ms
 
-#define NUMBER_MEASUREMENTS     40
+#define SPEED_SWITCH            3000        // ms
+#define SPEED1                  60
+#define SPEED2                  140
+
+#define NUMBER_MEASUREMENTS     50
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
 static double sampling_point[NUMBER_MEASUREMENTS] = {0.};
@@ -36,7 +40,7 @@ static int16_t speed_target_l = OFFSET_SPEED;
 static int16_t speed_target_r = OFFSET_SPEED;
 
 //spu = Straight PID Update, su = Speed Update, sru = Speed Rotation Update, eu = Edge Update, ku = Kinematics Update :
-static uint32_t spu_ts=0, su_ts=0, sru_ts=0, eu_ts=0, ku_ts=0;
+static uint32_t spu_ts=0, su_ts=0, sru_ts=0, eu_ts=0, ku_ts=0, pidu_ts=0;
 
 /*
  * The calibration function makes the robot advance for a given time, during which it samples
@@ -134,6 +138,13 @@ static print_sampling_point(){
     }
 }
 
+static print_raw_sampling_point(){
+    for(uint8_t i=0 ; i<index ; i++){
+        delay(100);
+        Serial.println(sampling_point[i]);
+    }
+}
+
 void setup(){
     Serial.begin(9600); // Start a serial connection
     delay(1500); // Wait for stable connection
@@ -147,8 +158,8 @@ void setup(){
 
     // PID intialisations: (Kp,Ki,Kd)
     straight_PID.initialise(60, 0.1, 0.005);
-    speed_PID_l.initialise(0.5, 0.5, 0.001 ); //0.5, 0.7, 0.001
-    speed_PID_r.initialise(0.5, 0.5, 0.001);
+    speed_PID_l.initialise(0.5, 0.5, 0.001); //older: 0.5, 0.7, 0.001 
+    speed_PID_r.initialise(0.5, 0.5, 0.001);  //old: 0.7, 0.9, 0.00
     
     calibrate();
 
@@ -163,6 +174,8 @@ void setup(){
 
 
 void loop(){
+    static float reading_time;
+    static uint32_t begin_reading_ts;
     static uint32_t current_ts_ms;
     current_ts_ms = millis();
     
@@ -171,7 +184,7 @@ void loop(){
         sru_ts=millis();
     }
 
-    if(current_ts_ms - ku_ts > KINEMATCS_UPDATE) {
+    if(current_ts_ms - ku_ts > KINEMATCS_UPDATE ) {
         kinematics.update();
         ku_ts=millis();
     }
@@ -179,20 +192,15 @@ void loop(){
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
-//        Serial.print(speed_target_r);
-//        Serial.print(" ");
-//        Serial.print(rotation_velocity_r);
-//        Serial.print(" ");
-//        Serial.println(update_signal_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();
     }
 
-    if(current_ts_ms - eu_ts > EDGE_UPDATE and state == STATE_READ_CODE and !read_bit) {
+    if(current_ts_ms - eu_ts > EDGE_UPDATE and state == STATE_READ_CODE) {
+        kinematics.update();
         bool color = lineSensors.numerical_measure();
         if(color!= current_color){
-            kinematics.update();
             edges_distance[index] = kinematics.XIabs;
             current_color=color;
         }  
@@ -212,6 +220,7 @@ void loop(){
               
                 speed_target_r=OFFSET_SPEED;
                 speed_target_l=OFFSET_SPEED;
+                begin_reading_ts=millis();
                 state=STATE_READ_CODE;
             }
             break;
@@ -234,6 +243,7 @@ void loop(){
                 if(index<NUMBER_MEASUREMENTS){
                     measurements[index]=current_bit;
                     if(index > 0 and measurements[index-1] == measurements[index]){
+                        reading_time=(float)(millis()-begin_reading_ts)/1000;
                         state=STATE_FAILED;
                         speed_target_r=0;
                         speed_target_l=0;
@@ -251,15 +261,30 @@ void loop(){
             Serial.println("---------------------------------------");
             Serial.print("Last correct index = ");
             Serial.println(index-1);
+            Serial.print("Reading time = ");
+            Serial.println(reading_time);
             print_edges_distance();
             print_sampling_distance();
             print_sampling_point();
+            //print_raw_sampling_point();
 
             delay(1000);
             break;
 
         case STATE_DEBUG:
-            delay(1000);
+            if(current_ts_ms-pidu_ts> SPEED_SWITCH){
+                if(speed_target_r==SPEED1){
+                    speed_target_r=SPEED2;
+                }
+                else speed_target_r=SPEED1;
+                pidu_ts=millis();
+            }
+            Serial.print(rotation_velocity_r);
+            Serial.print(" ");
+            Serial.print(SPEED1);
+            Serial.print(" ");
+            Serial.println(SPEED2);
+            delay(10);
             break;
             
         default:
