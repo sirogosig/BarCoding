@@ -5,20 +5,14 @@
 #include "pid.h"
 #include "kinematics.h"
 
-#define CPR                     358.3       // counts per revolution
-#define WHEEL_DIAMETER          32.         // mm
-#define WHEEL_DISTANCE          85.         // mm, the distance between both wheels
-#define ANGLE_PER_COUNT         2*PI/CPR    // rad
-#define TRAVEL_PER_COUNT        WHEEL_DIAMETER*PI/CPR // mm/count
-
-
-#define FOLLOW_LINE_UPDATE      100         // ms
+#define STRAIGHT_PID_UPDATE     100         // ms
 #define SPEED_UPDATE            20          // ms
+#define KINEMATCS_UPDATE        30          // ms
 #define SPEED_READING_UPDATE    9           // ms
-#define CALIBRATION_TIME        2400        // ms   
-#define EDGE_UPDATE             5          // ms
+#define CALIBRATION_TIME        2000        // ms   
+#define EDGE_UPDATE             5           // ms
 
-#define NUMBER_MEASUREMENTS     50
+#define NUMBER_MEASUREMENTS     40
 
 static bool measurements[NUMBER_MEASUREMENTS]={WHITE}; 
 static double sampling_point[NUMBER_MEASUREMENTS] = {0.};
@@ -30,19 +24,19 @@ static double edges_distance[NUMBER_MEASUREMENTS] = {0.};
 
 static LineSensor_c lineSensors;
 static Motors_c motors;
-static PID_c line_PID;
+static PID_c straight_PID; // used for the line-following AND for barcode reading in a straight line
 static PID_c speed_PID_l;
 static PID_c speed_PID_r;
 static Kinematics_c kinematics;
 
-static double rotation_velocity_r=OFFSET_SPEED; // mm/s
-static double rotation_velocity_l=OFFSET_SPEED; // mm/s
+static double rotation_velocity_r = OFFSET_SPEED; // mm/s
+static double rotation_velocity_l = OFFSET_SPEED; // mm/s
 
-static int16_t speed_target_l=OFFSET_SPEED;
-static int16_t speed_target_r=OFFSET_SPEED;
+static int16_t speed_target_l = OFFSET_SPEED;
+static int16_t speed_target_r = OFFSET_SPEED;
 
- //flu = Follow Line Update, sb = Starting Behaviour, pidu= PID Update, su = Speed Update, rsu = Rotation Speed Update:
-static uint32_t flu_ts=0, sb_ts=0, pidu_ts=0, su_ts=0, sru_ts=0, eu_ts=0;
+//spu = Straight PID Update, su = Speed Update, sru = Speed Rotation Update, eu = Edge Update, ku = Kinematics Update :
+static uint32_t spu_ts=0, su_ts=0, sru_ts=0, eu_ts=0, ku_ts=0;
 
 /*
  * The calibration function makes the robot advance for a given time, during which it samples
@@ -69,7 +63,7 @@ static void calibrate(){
 
 static void lineFollowingBehaviour(){
     lineSensors.measure();  // Conducts a read of the line sensors
-    double feedback_signal_line=line_PID.update(0,lineSensors.getPositionError());
+    double feedback_signal_line=straight_PID.update(0,lineSensors.getPositionError());
 
     speed_target_l=OFFSET_SPEED - feedback_signal_line;
     speed_target_r=OFFSET_SPEED + feedback_signal_line;
@@ -152,7 +146,7 @@ void setup(){
     motors.initialise();
 
     // PID intialisations: (Kp,Ki,Kd)
-    line_PID.initialise(60, 0.1, 0.005);
+    straight_PID.initialise(60, 0.1, 0.005);
     speed_PID_l.initialise(0.5, 0.5, 0.001 ); //0.5, 0.7, 0.001
     speed_PID_r.initialise(0.5, 0.5, 0.001);
     
@@ -160,7 +154,7 @@ void setup(){
 
     
     state=STATE_FOLLOW_LINE;
-    line_PID.reset();
+    straight_PID.reset();
     speed_PID_l.reset();
     speed_PID_r.reset();
 
@@ -175,6 +169,11 @@ void loop(){
     if(current_ts_ms - sru_ts > SPEED_READING_UPDATE and !read_bit) {
         read_rotation_speeds();
         sru_ts=millis();
+    }
+
+    if(current_ts_ms - ku_ts > KINEMATCS_UPDATE) {
+        kinematics.update();
+        ku_ts=millis();
     }
 
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
@@ -202,9 +201,9 @@ void loop(){
     
     switch(state){
         case STATE_FOLLOW_LINE:
-            if(current_ts_ms - flu_ts > FOLLOW_LINE_UPDATE){
+            if(current_ts_ms - spu_ts > STRAIGHT_PID_UPDATE){
                 lineFollowingBehaviour();
-                flu_ts = millis();
+                spu_ts = millis();
             }
             if(!lineSensors.on_line()){
                 TCNT3=OCR3A/2;
@@ -218,6 +217,15 @@ void loop(){
             break;
 
         case STATE_READ_CODE:
+            if(current_ts_ms - spu_ts > STRAIGHT_PID_UPDATE){ // 10 Hz
+                double feedback_signal_line=straight_PID.update(0,kinematics.theta);
+
+                speed_target_l=OFFSET_SPEED - feedback_signal_line;
+                speed_target_r=OFFSET_SPEED + feedback_signal_line;
+                
+                spu_ts = millis();
+            }
+               
             if(read_bit){ // only reads when the interrupt routine is called
                 kinematics.update();
                 sampling_distance[index] = kinematics.XIabs;

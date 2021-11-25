@@ -20,14 +20,14 @@
 
 #define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
 #define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
-#define OFFSET_SPEED        80         // mm/s
+#define OFFSET_SPEED        100         // mm/s
 #define BIT_SIZE            16.         // mm 
 
-#define STATE_INITIALISE        'I'
-#define STATE_READ_CODE         'C'
-#define STATE_FOLLOW_LINE       'L'
-#define STATE_DEBUG             'D'
-#define STATE_FAILED            'F'
+#define STATE_INITIALISE    'I'
+#define STATE_READ_CODE     'C'
+#define STATE_FOLLOW_LINE   'L'
+#define STATE_DEBUG         'D'
+#define STATE_FAILED        'F'
 
 volatile boolean read_bit = false;
 volatile boolean DEBUG_LED_STATE = false;
