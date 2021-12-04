@@ -7,6 +7,7 @@
 
 #define STRAIGHT_PID_UPDATE     100         // ms
 #define SPEED_UPDATE            20          // ms
+
 #define KINEMATCS_UPDATE        30          // ms
 #define SPEED_READING_UPDATE    9           // ms
 #define CALIBRATION_TIME        3000        // ms   

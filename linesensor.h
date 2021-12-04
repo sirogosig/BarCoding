@@ -23,6 +23,7 @@
 #define OFFSET_SPEED        60         // mm/s  Possible speeds : 60, 100, 140, 180, 220
 #define BIT_SIZE            8.         // mm 
 
+
 #define STATE_INITIALISE    'I'
 #define STATE_READ_CODE     'C'
 #define STATE_FOLLOW_LINE   'L'
