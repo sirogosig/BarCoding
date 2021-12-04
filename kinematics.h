@@ -23,11 +23,7 @@ class Kinematics_c {
 
         // Constructor, must exist.
         Kinematics_c() {
-            count_r_old=0;
-            count_l_old=0;
-            XIabs=0.;
-            YIabs=0.;
-            theta=0.;
+
         }
 
         void reset() {

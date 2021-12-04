@@ -45,10 +45,9 @@ class PID_c {
             double elapsed_time=0., feedback_signal=0.; // Times in seconds
             if((current_ts-previous_ts)<=0) elapsed_time=1./1000;
             else elapsed_time = (current_ts-previous_ts)*1./1000;
-            
             error = demand - measurement;
             total_error += error * elapsed_time;
-
+            
             if(Ki * total_error > 200.) total_error = 200./Ki;    //Anti wind-up
             if(Ki * total_error < -200.) total_error = -200./Ki;  //Anti wind-up
             

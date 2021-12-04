@@ -10,7 +10,7 @@
 
 #define KINEMATCS_UPDATE        30          // ms
 #define SPEED_READING_UPDATE    9           // ms
-#define CALIBRATION_TIME        3000        // ms   
+#define CALIBRATION_TIME        1500        // ms   
 #define EDGE_UPDATE             10          // ms
 
 #define SPEED_SWITCH            3000        // ms
@@ -84,10 +84,8 @@ static void read_rotation_speeds(){
     current_count_l=count_l;
 
     loop_duration_us=current_ts_us-previous_ts_us;
-    if(current_count_r!=previous_count_r && loop_duration_us!=0){
+    if(loop_duration_us!=0){
         rotation_speed_r=(current_count_r-previous_count_r)/((float)loop_duration_us)*1000000*TRAVEL_PER_COUNT;
-    }
-    if(current_count_l!=previous_count_l && loop_duration_us!=0){
         rotation_speed_l=(current_count_l-previous_count_l)/((float)loop_duration_us)*1000000*TRAVEL_PER_COUNT;
     }
 
@@ -180,7 +178,7 @@ void loop(){
     static uint32_t current_ts_ms;
     current_ts_ms = millis();
     
-    if(current_ts_ms - sru_ts > SPEED_READING_UPDATE and !read_bit) {
+    if(current_ts_ms - sru_ts > SPEED_READING_UPDATE) {
         read_rotation_speeds();
         sru_ts=millis();
     }
@@ -190,22 +188,17 @@ void loop(){
         ku_ts=millis();
     }
 
-    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
+    if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
+//        Serial.println(speed_PID_r.error);
+//        Serial.print(", ");
+//        Serial.print(speed_target_r);
+//        Serial.print(", ");
+//        Serial.println(rotation_velocity_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();
-    }
-
-    if(current_ts_ms - eu_ts > EDGE_UPDATE and state == STATE_READ_CODE) {
-        kinematics.update();
-        bool color = lineSensors.numerical_measure();
-        if(color!= current_color){
-            edges_distance[index] = kinematics.XIabs;
-            current_color=color;
-        }  
-        eu_ts=millis();    
     }
     
     switch(state){
@@ -215,18 +208,26 @@ void loop(){
                 spu_ts = millis();
             }
             if(!lineSensors.on_line()){
-                TCNT3=OCR3A/2;
-                kinematics.reset();
-                edges_distance[index] = kinematics.XIabs; // At this point index = 0
-              
+                kinematics.reset();              
                 speed_target_r=OFFSET_SPEED;
                 speed_target_l=OFFSET_SPEED;
                 begin_reading_ts=millis();
                 state=STATE_READ_CODE;
             }
             break;
-
+            
         case STATE_READ_CODE:
+            if(current_ts_ms - begin_reading_ts > 2000){
+                motors.halt();
+                speed_target_l=0;
+                speed_target_r=0;
+                reading_time=millis()-begin_reading_ts;
+                state=STATE_FAILED; // 144 mm at 60mm/s  and he thinks he did 127 (2 seconds) --> Delta_v = 8.5 mm/s
+                                    // 288 mm at 140mm/s and he thinks he did 269 (2 seconds) --> Delta_v = 9.5 mm/s
+                                    // 352 mm at 220mm/s and he thinks he did 332 (1.5 seconds) --> Delta_v = 13.3 mm/s
+                                    // Error in speed constant
+            }         
+            
             if(current_ts_ms - spu_ts > STRAIGHT_PID_UPDATE){ // 10 Hz
                 double feedback_signal_line=straight_PID.update(0,kinematics.theta);
 
@@ -236,60 +237,22 @@ void loop(){
                 spu_ts = millis();
             }
                
-            if(read_bit){ // only reads when the interrupt routine is called
-                kinematics.update();
-                sampling_distance[index] = kinematics.XIabs;
-                boolean current_bit = lineSensors.numerical_measure();
-                                
-                if(index<NUMBER_MEASUREMENTS){
-                    measurements[index]=current_bit;
-                    if(index > 0 and measurements[index-1] == measurements[index]){
-                        reading_time=(float)(millis()-begin_reading_ts)/1000;
-                        state=STATE_FAILED;
-                        speed_target_r=0;
-                        speed_target_l=0;
-                        motors.halt();
-                        compute_sampling_point();
-                    }
-                    else index++;
-                }
-                digitalWrite(13, current_bit);                
-                read_bit = false;         
-            }
             break;
 
         case STATE_FAILED:
             Serial.println("---------------------------------------");
-            Serial.print("Last correct index = ");
-            Serial.println(index-1);
             Serial.print("Reading time = ");
             Serial.println(reading_time);
-            print_edges_distance();
-            print_sampling_distance();
-            print_sampling_point();
-            //print_raw_sampling_point();
+             Serial.print("Kinematics XIabs = ");
+            Serial.println(kinematics.XIabs);
 
             delay(1000);
             break;
 
         case STATE_DEBUG:
-            if(current_ts_ms-pidu_ts> SPEED_SWITCH){
-                if(speed_target_r==SPEED1){
-                    speed_target_r=SPEED2;
-                }
-                else speed_target_r=SPEED1;
-                pidu_ts=millis();
-            }
-            Serial.print(rotation_velocity_r);
-            Serial.print(" ");
-            Serial.print(SPEED1);
-            Serial.print(" ");
-            Serial.println(SPEED2);
-            delay(10);
             break;
             
         default:
             break;
     }
-    
 }
