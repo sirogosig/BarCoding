@@ -185,27 +185,12 @@ void loop(){
         sru_ts=millis();
     }
 
-    if(current_ts_ms - ku_ts > KINEMATCS_UPDATE ) {
-        kinematics.update();
-        ku_ts=millis();
-    }
-
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED and !read_bit) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();
-    }
-
-    if(current_ts_ms - eu_ts > EDGE_UPDATE and state == STATE_READ_CODE) {
-        kinematics.update();
-        bool color = lineSensors.numerical_measure();
-        if(color!= current_color){
-            edges_distance[index] = kinematics.XIabs;
-            current_color=color;
-        }  
-        eu_ts=millis();    
     }
     
     switch(state){
@@ -227,6 +212,21 @@ void loop(){
             break;
 
         case STATE_READ_CODE:
+            if(current_ts_ms - ku_ts > KINEMATCS_UPDATE ){
+                kinematics.update();
+                ku_ts=millis();
+            }
+
+            if(current_ts_ms - eu_ts > EDGE_UPDATE){
+                kinematics.update();
+                bool color = lineSensors.numerical_measure();
+                if(color!= current_color){
+                    edges_distance[index] = kinematics.XIabs;
+                    current_color=color;
+                }  
+                eu_ts=millis();    
+            }
+            
             if(current_ts_ms - spu_ts > STRAIGHT_PID_UPDATE){ // 10 Hz
                 double feedback_signal_line=straight_PID.update(0,kinematics.theta);
 
