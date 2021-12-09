@@ -10,7 +10,7 @@
 
 #define KINEMATCS_UPDATE        30          // ms
 #define SPEED_READING_UPDATE    9           // ms
-#define CALIBRATION_TIME        1500        // ms   
+#define CALIBRATION_TIME        800        // ms   
 #define EDGE_UPDATE             10          // ms
 
 #define SPEED_SWITCH            3000        // ms
@@ -183,19 +183,9 @@ void loop(){
         sru_ts=millis();
     }
 
-    if(current_ts_ms - ku_ts > KINEMATCS_UPDATE ) {
-        kinematics.update();
-        ku_ts=millis();
-    }
-
     if(current_ts_ms - su_ts > SPEED_UPDATE and state != STATE_FAILED) {
         double update_signal_r=speed_PID_r.update(speed_target_r,rotation_velocity_r);
         double update_signal_l=speed_PID_l.update(speed_target_l,rotation_velocity_l);
-//        Serial.println(speed_PID_r.error);
-//        Serial.print(", ");
-//        Serial.print(speed_target_r);
-//        Serial.print(", ");
-//        Serial.println(rotation_velocity_r);
         motors.setRightMotorPower((int16_t)update_signal_r);
         motors.setLeftMotorPower((int16_t)update_signal_l);
         su_ts=millis();
@@ -226,7 +216,12 @@ void loop(){
                                     // 288 mm at 140mm/s and he thinks he did 269 (2 seconds) --> Delta_v = 9.5 mm/s
                                     // 352 mm at 220mm/s and he thinks he did 332 (1.5 seconds) --> Delta_v = 13.3 mm/s
                                     // Error in speed constant
-            }         
+            }
+
+            if(current_ts_ms - ku_ts > KINEMATCS_UPDATE ) {
+                kinematics.update();
+                ku_ts=millis();
+            }
             
             if(current_ts_ms - spu_ts > STRAIGHT_PID_UPDATE){ // 10 Hz
                 double feedback_signal_line=straight_PID.update(0,kinematics.theta);

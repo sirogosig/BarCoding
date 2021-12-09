@@ -20,7 +20,7 @@
 
 #define LED_PIN             13          // Pin to activate the orange LED of the LED, and toggle it.
 #define SAMPLING_TIME       BIT_SIZE/OFFSET_SPEED   // s
-#define OFFSET_SPEED        140         // mm/s  Possible speeds : 60, 100, 140, 180, 220
+#define OFFSET_SPEED        220         // mm/s  Possible speeds : 60, 100, 140, 180, 220
 #define BIT_SIZE            8.         // mm 
 
 
