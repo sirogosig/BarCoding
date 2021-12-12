@@ -43,9 +43,8 @@ static uint8_t ls_pin[NB_LS_PINS] = {LS_LEFT_PIN, LS_CENTRE_PIN, LS_RIGHT_PIN};
 // The name TIMER3_COMPA_vect is a special flag to the 
 // compiler.  It automatically associates with Timer3 in
 // CTC mode.
-ISR( TIMER3_COMPA_vect ) {
+ISR( TIMER3_COMPA_vect ){
     if(state==STATE_READ_CODE) read_bit=true;
-
 }
 
 
