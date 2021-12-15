@@ -26,7 +26,6 @@ plot(xx,exp_low_PLOT,'r','linewidth',2);
 hold on
 plot(xx,exp_high_PLOT,'g','linewidth',2);
 
-title('Capacitor discharging for different surfaces');
 grid off;
 xlabel('Time');
 ylabel('Output voltage');
