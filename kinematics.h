@@ -38,9 +38,6 @@ class Kinematics_c {
             count_l_old=count_l;
         }
 
-        
-        // Use this function to update
-        // your kinematics
         void update(){
             if(count_r_old!=count_r or count_l_old!=count_l){
                 double phi_r=((count_r-count_r_old)*ANGLE_PER_COUNT); // Right wheel Delta_rotation estimate
@@ -62,7 +59,5 @@ class Kinematics_c {
             }
         }
 };
-
-
 
 #endif

@@ -57,6 +57,10 @@ class PID_c {
             previous_ts=current_ts;
             return feedback_signal;
         }
+        
+        /*
+         * Printing functions below
+         */
 
         void print_errors(){
             Serial.print("Error = ");

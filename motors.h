@@ -19,7 +19,8 @@
 class Motors_c {
     // This keyword means that all code below this point is accesible from outside the class.
     public:  
-        Motors_c() {
+        Motors_c(){
+        
         } 
       
         void setLeftMotorPower(float pwm) {
@@ -101,7 +102,6 @@ class Motors_c {
             setRightMotorPower(0);
         }
 };
-
 
 
 #endif

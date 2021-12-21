@@ -157,53 +157,7 @@ class LineSensor_c {
                 scaling_factors[i]=0.; 
                 turn_direction=LEFT;  
             }
-        } 
-
-        void print_LS_raw_data(){
-            Serial.print("Left line sensor raw value: " );
-            Serial.println( ls_raw_data[0] );
-
-            Serial.print("Center line sensor raw value: " );
-            Serial.println(ls_raw_data[1] );
-
-            Serial.print("Right line sensor raw value: " );
-            Serial.println( ls_raw_data[2] );
         }
-
-        void print_LS_conditioned_data(){
-            Serial.print("Left line sensor conditioned value: " );
-            Serial.println(ls_conditioned_data[0],6);
-
-            Serial.print("Center line sensor conditioned value: " );
-            Serial.println(ls_conditioned_data[1],6);
-
-            Serial.print("Right line sensor conditioned value: " );
-            Serial.println(ls_conditioned_data[2],6);
-        }
-
-        void print_LS_percentage_data(){
-            Serial.print("Left line sensor percentage value: " );
-            Serial.println(ls_values_percentage[0],6);
-
-            Serial.print("Center line sensor percentage value: " );
-            Serial.println(ls_values_percentage[1],6);
-
-            Serial.print("Right line sensor percentage value: " );
-            Serial.println(ls_values_percentage[2],6);
-        }
-
-        void print_LS_min_max_data(){
-            Serial.println("Min values : ");
-            Serial.println(ls_min_values[0]);
-            Serial.println(ls_min_values[1]);
-            Serial.println(ls_min_values[2]);
-            
-            Serial.println("Max values : ");
-            Serial.println(ls_max_values[0]);
-            Serial.println(ls_max_values[1]);
-            Serial.println(ls_max_values[2]);   
-        }
-
     
         // Initialises the pins and state of linesensorss
         void initialise(){
@@ -291,6 +245,55 @@ class LineSensor_c {
             }
             if(ls_conditioned_data[1]>=0.35) return BLACK;
             else return WHITE;
+        }
+
+        /*
+         * Printing functions below
+         */
+         
+        void print_LS_raw_data(){
+            Serial.print("Left line sensor raw value: " );
+            Serial.println( ls_raw_data[0] );
+
+            Serial.print("Center line sensor raw value: " );
+            Serial.println(ls_raw_data[1] );
+
+            Serial.print("Right line sensor raw value: " );
+            Serial.println( ls_raw_data[2] );
+        }
+
+        void print_LS_conditioned_data(){
+            Serial.print("Left line sensor conditioned value: " );
+            Serial.println(ls_conditioned_data[0],6);
+
+            Serial.print("Center line sensor conditioned value: " );
+            Serial.println(ls_conditioned_data[1],6);
+
+            Serial.print("Right line sensor conditioned value: " );
+            Serial.println(ls_conditioned_data[2],6);
+        }
+
+        void print_LS_percentage_data(){
+            Serial.print("Left line sensor percentage value: " );
+            Serial.println(ls_values_percentage[0],6);
+
+            Serial.print("Center line sensor percentage value: " );
+            Serial.println(ls_values_percentage[1],6);
+
+            Serial.print("Right line sensor percentage value: " );
+            Serial.println(ls_values_percentage[2],6);
+        }
+
+        void print_LS_min_max_data(){
+            Serial.println("Min values : ");
+            Serial.println(ls_min_values[0]);
+            Serial.println(ls_min_values[1]);
+            Serial.println(ls_min_values[2]);
+            
+            Serial.println("Max values : ");
+            Serial.println(ls_max_values[0]);
+            Serial.println(ls_max_values[1]);
+            Serial.println(ls_max_values[2]);   
         }
 };
 

@@ -1,4 +1,3 @@
-//This is the kinematics branch
 #include "motors.h"
 #include "linesensor.h"
 #include "encoders.h"
@@ -41,7 +40,7 @@ static int16_t speed_target_l = OFFSET_SPEED;
 static int16_t speed_target_r = OFFSET_SPEED;
 
 //spu = Straight PID Update, su = Speed Update, sru = Speed Rotation Update, eu = Edge Update, ku = Kinematics Update :
-static uint32_t spu_ts=0, su_ts=0, sru_ts=0, eu_ts=0, ku_ts=0, pidu_ts=0;
+static uint32_t spu_ts=0, su_ts=0, sru_ts=0, eu_ts=0, ku_ts=0;
 
 /*
  * The calibration function makes the robot advance for a given time, during which it samples
@@ -273,18 +272,6 @@ void loop(){
             break;
 
         case STATE_DEBUG:
-            if(current_ts_ms-pidu_ts> SPEED_SWITCH){
-                if(speed_target_r==SPEED1){
-                    speed_target_r=SPEED2;
-                }
-                else speed_target_r=SPEED1;
-                pidu_ts=millis();
-            }
-            Serial.print(rotation_velocity_r);
-            Serial.print(" ");
-            Serial.print(SPEED1);
-            Serial.print(" ");
-            Serial.println(SPEED2);
             delay(10);
             break;
             
